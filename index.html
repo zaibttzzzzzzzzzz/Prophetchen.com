@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profit Chain - Polygon Auto System</title>
+    <style>
+        body { background: black; color: gold; font-family: Arial; padding: 20px; }
+        button { background: gold; color: black; padding: 10px; border: none; margin: 10px; }
+        table { border: 2px solid gold; width: 100%; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid gold; }
+        #dashboard { display: none; }
+    </style>
+    <!-- Web3 Library -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.6.umd.min.js"></script>
+</head>
+<body>
+    <h1>Profit Chain (Polygon)</h1>
+    <div id="dashboard">
+        <h3>Your Dashboard:</h3>
+        <table>
+            <tr><th>Referral Link</th><td><input type="text" id="referralLink" readonly style="width:500px;"></td></tr>
+            <tr><th>Direct Team</th><td id="directTeam">0</td></tr>
+            <tr><th>Total Team</th><td id="totalTeam">0</td></tr>
+        </table>
+        <button onclick="upgradeLevel()">Upgrade Level</button>
+    </div>
+
+    <script>
+        // Contract Details (YAHI CHANGE KARNA HAI!)
+        const CONTRACT_ADDRESS = "YOUR_POLYGON_CONTRACT_ADDRESS"; // Replace with your contract address
+        const ABI = [ /* PASTE_YOUR_ABI_HERE */ ]; // Paste ABI from Remix IDE
+
+        // 1. Automatically Switch to Polygon Network
+        async function switchToPolygon() {
+            try {
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== "0x89") {
+                    await window.ethereum.request({
+                        method: "wallet_addEthereumChain",
+                        params: [{
+                            chainId: "0x89",
+                            chainName: "Polygon Mainnet",
+                            nativeCurrency: { name: "MATIC", symbol: "MATIC", decimals: 18 },
+                            rpcUrls: ["https://polygon-rpc.com"],
+                            blockExplorerUrls: ["https://polygonscan.com"]
+                        }]
+                    });
+                }
+                return true;
+            } catch (error) {
+                alert("Polygon setup failed! Manual switch karein.");
+                return false;
+            }
+        }
+
+        // 2. Load User Stats
+        async function loadStats() {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const userAddress = await signer.getAddress();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            
+            // Update Dashboard
+            document.getElementById("referralLink").value = `${window.location.href}?ref=${userAddress}`;
+            document.getElementById("directTeam").textContent = await contract.getDirectCount(userAddress);
+            document.getElementById("totalTeam").textContent = await contract.getTotalTeam(userAddress);
+            document.getElementById("dashboard").style.display = "block";
+        }
+
+        // 3. Upgrade Level (Auto-Income Distribution)
+        async function upgradeLevel() {
+            const level = prompt("Enter Level (1-10):");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            const fee = await contract.levelFees(level - 1);
+            await contract.upgradeLevel(level, { value: fee });
+            alert("Upgraded! Income auto-sent to upline/downline.");
+        }
+
+        // Auto-Run on Page Load
+        window.onload = async () => {
+            if (window.ethereum) {
+                const switched = await switchToPolygon();
+                if (switched) await loadStats();
+            } else {
+                alert("MetaMask/Trust Wallet install karein!");
+            }
+        };
+    </script>
+</body>
+</html>
